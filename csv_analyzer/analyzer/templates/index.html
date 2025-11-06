@@ -1,0 +1,224 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CSV Analyzer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+<div class="container">
+    <h1 class="mb-4">📊 CSV Analyzer</h1>
+
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    {% if not columns %}
+        <div class="card p-4">
+            <h3>Upload Your CSV</h3>
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">Name</label>
+                    <input type="text" name="name" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" name="email" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Phone no.</label>
+                    <input type="text" name="phone" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">CSV File</label>
+                    <input type="file" name="csv_file" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="display: block; margin: 0 auto;">Upload and Analyze</button>
+            </form>
+        </div>
+    {% endif %}
+
+    {% if columns %}
+    
+        <form method="post" action="{% url 'reset' %}">
+            {% csrf_token %}
+            <button type="submit" style="margin-top: 20px;" class="btn btn-danger">Back to Upload</button>
+        </form>
+        
+        {% if using_updated_file %}
+            <p style="color: green;"><strong>Using cleaned CSV for analysis.</strong></p>
+        {% endif %}
+
+        <hr>
+        <h2>---Data Preview---</h2>
+        {% if shape %}
+            <h3>CSV Shape</h3>
+            <p align="center">{{ shape }}</p>
+        {% endif %}
+
+        <div class="table-wrapper">
+            {{ head|safe }}
+        </div>
+
+        
+        <div class="table-wrapper">
+        <h2>Null Values and Data Types</h2>
+        <table border="1" cellpadding="5" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>Column Name</th>
+                    <th>Null Values</th>
+                    <th>Data Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for col, info in column_info.items %}
+                <tr>
+                    <td>{{ col }}</td>
+                    <td>{{ info.nulls }}</td>
+                    <td>{{ info.dtype }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        
+        <section>
+        <h2>Duplicate Rows Count is {{ duplicates }}.</h2>
+        </section>    
+        <!-- For removing null values -->
+        {% if show_remove_nulls %}
+        <section align="center">
+            <form method="POST">
+                {% csrf_token %}
+                <button type="submit" name="remove_nulls" class="btn btn-warning">
+                    Remove Null Values
+                </button>
+            </form>
+        </section>
+        {% endif %}
+        
+        {% if updated_csv_ready %}
+        <section align="center">
+            <a href="{{ download_link }}" download class="download-link">
+                ⬇️ Download Cleaned CSV
+            </a>
+        </section>
+        {% endif %}
+
+
+        <hr>
+        <h2>Select Columns for Analysis...</h2>
+        <form method="post">
+            {% csrf_token %}
+            <!-- Hidden Fields to preserve user info -->    
+            <input type="hidden" name="name" value="{{ request.POST.name }}">
+            <input type="hidden" name="email" value="{{ request.POST.email }}">
+            <input type="hidden" name="phone" value="{{ request.POST.phone }}">
+
+            <label>Column 1 (numeric only):</label>
+            <select name="col1" required>
+                {% for col in numeric_columns %}
+                    <option value="{{ col }}" {% if col == request.POST.col1 %}selected{% endif %}>{{ col }}</option>
+                {% endfor %}
+            </select><br>
+
+            <label>Column 2 (targeted):</label>
+            <select name="col2">
+                <option value="">None</option>
+                {% for col in numeric_columns %}
+                    <option value="{{ col }}" {% if col == request.POST.col2 %}selected{% endif %}>{{ col }}</option>
+                {% endfor %}
+            </select><br><br>
+
+            <button type="submit" class="btn btn-success">Analyze Selected Columns</button>
+        </form>
+    {% endif %}
+
+    {% if heatmap or histogram or scatter or boxplot %}
+        <section>
+            <hr>
+            <h2>Visualizations</h2>
+
+            <div class="image-grid">
+                {% if heatmap %}<img src="{% static heatmap %}">{% endif %}
+                {% if histogram %}<img src="{% static histogram %}">{% endif %}
+                {% if boxplot %}<img src="{% static boxplot %}">{% endif %}
+                {% if bar_chart %}<img src="{% static bar_chart %}">{% endif %}
+                {% if scatter %}<img src="{% static scatter %}">{% endif %}
+                {% if parallel_plot %}<img src="{% static parallel_plot %}">{% endif %}
+            </div>
+        </section>
+    {% endif %}
+
+
+    {% if regression %}
+    <section>
+        <h2>Regression Result</h2>
+        <p>{{ regression }}</p>
+    </section>
+    {% endif %}
+
+    {% if classification %}
+    <section>
+        <h2>Classification Result</h2>
+        <p>{{ classification }}</p>
+    </section>
+    {% endif %}
+
+    {% if clustering %}
+    <section>
+        <h2>KMeans Clustering</h2>
+        <p>{{ clustering }}</p>
+    </section>
+    {% endif %}
+
+    {% if outliers %}
+    <section>
+        <h2>Outlier Detection</h2>
+        <p>{{ outliers }}</p>
+    </section>
+    {% endif %}
+
+    {% if regression_comparison %}
+        <div class="card mt-4">
+          <div class="card-header bg-info text-white">
+            <h5>📊 Regression Model Comparison</h5>
+          </div>
+          <div class="card-body">
+            <div class="row text-center">
+              <div class="col-md-4">
+                <h6>Linear Regression</h6>
+                <p>R² Score: {{ regression_comparison.results.linear.r2|floatformat:4 }}</p>
+                <p>MSE: {{ regression_comparison.results.linear.mse|floatformat:4 }}</p>
+              </div>
+              <div class="col-md-4">
+                <h6>Multiple Linear Regression</h6>
+                <p>R² Score: {{ regression_comparison.results.multiple.r2|floatformat:4 }}</p>
+                <p>MSE: {{ regression_comparison.results.multiple.mse|floatformat:4 }}</p>
+              </div>
+              <div class="col-md-4">
+                <h6>Polynomial Regression</h6>
+                <p>R² Score: {{ regression_comparison.results.polynomial.r2|floatformat:4 }}</p>
+                <p>MSE: {{ regression_comparison.results.polynomial.mse|floatformat:4 }}</p>
+              </div>
+            </div>
+            <hr>
+            <div class="text-center">
+              <strong>Best Performing Model: {{ regression_comparison.best_model }}</strong>
+            </div>
+          </div>
+        </div>
+    {% elif regression_comparison_error %}
+        <div class="alert alert-danger mt-3">{{ regression_comparison_error }}</div>
+    {% endif %}
+</div>
+</body>
+</html>
